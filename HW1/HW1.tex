@@ -1,0 +1,181 @@
+\documentclass{article}
+\usepackage{etoolbox}
+\usepackage{amsmath} % assumes amsmath package installed
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage[utf8]{inputenc}
+
+\usepackage[usenames, dvipsnames]{color}
+
+\DeclareMathOperator*{\argmin}{arg\,min}
+
+\title
+{ 
+{\small Statistical Techniques in Robotics 16-831 - The Robotics Institute} \\
+Project 1: The Weighted Majority Algorithm \\
+{\large Deadline: Sept 24, 2020 11:59 PM EST (submit via Canvas)}}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+One application of the Weighted Majority Algorithm is the Prediction With Expert Advice (PWEA) problem. In PWEA, a finite number of experts will each make a prediction. The online learning algorithm then chooses to listen to a particular expert or combine predictions from multiple experts. The goal of the online learning algorithm is to minimize the number of mistakes/loss in the long run. %and the strategy is make use of all past information to make increasingly better predictions. 
+
+The theoretical goal of this project is to help you understand and become comfortable deriving basic performance bounds for online algorithms for solving the PWEA problem.
+
+The programming portion of the project is designed to help you understand the actual implementation of an online algorithm. We hope to show that once all of the theory has been laid out, the actual implementation of the online learning algorithm is quite simple and that most of the algorithms are very short.
+
+\subsection{Instructions}
+Submit this homework on Canvas. Remember, you can only use a maximum of 2 late days (out of 5 for the semester) for any assignment.
+Detailed instructions on what to submit are given in section \ref{sec:wts}.
+
+\section{Theory Questions (45 points)}
+\subsection{Regret (5 points)}
+
+Recall the definition of regret:
+
+\begin{equation}
+        R_t(\mathcal{H}) = \sum_{i = 1}^t \ell(\hat y^{(i)}, y^{(i)}) - \min_{h \in \mathcal{H}}\sum_{i=1}^t \ell(h(\mathbf{x}^{(i)}), y^{(i)}) \nonumber
+\end{equation}
+The regret at time $t$ is defined as the difference in the loss incurred by the learner and the loss of the best possible expert in hindsight up until time $t$. Here, assume each $h$ in the hypothesis class $\mathcal{H}$ is just an indicator of which expert's prediction to select from $x^{(t)}$. In other words, the hypotheses are the experts themselves.
+
+\noindent \textbf{Question:} Can regret be negative? If yes, provide an example. If no, provide a mathematical explanation. \textbf{Note:} Your answer depends on the assumptions you make. Make sure to state them with your answer.
+
+
+\subsection{Constructing Experts (5 points)}
+In the specific case of the PWEA problem, we defined the hypothesis class as a set of indicator functions over experts. What if we don't have explicit experts available to us?
+
+We now define our input space as a finite set of $N$ feature vectors: $\mathcal{X} = \{x_1, x_2, ..., x_N\}$. Previously, these were vectors where each element was the prediction of a single expert. Now, you can think of $x_i$ as some feature representation of an image of a given size (e.g., pixel values of image). We define our output space the finite set: $\mathcal{Y} = \{1, 2, ..., K\}$. Here, $y\in\mathcal{Y}$ could be the label of an image (e.g., car, dog, building). 
+
+In general, given an input space $\mathcal{X}$ and an output space $\mathcal{Y}$, a hypothesis $h$ is just a mapping: $h: \mathcal{X}\to\mathcal{Y}$. There is a true label for each input vector $x_i \in \mathcal{X}$ which we do not know.
+
+\noindent\textbf{Question:} Construct a hypothesis class $\mathcal{H}$ to make this a realizable scenario. In other words, show that in the case where we have a finite input space and a finite output space, we can always construct a hypothesis class (a set of experts) which contains the perfect expert, no matter the true labeling for the feature vectors. What is the size of such a hypothesis class?
+
+
+\subsection{Bayesian Halving: Predicting with a Prior (10 points)}
+In the class, we focused on binary classification problem using experts' advice, where we assume before the game starts, we have no knowledge about which expert is good or bad. In this problem, we assume that we are given initial information which describes how good or bad an expert is. This is in the form of prior probabilities over the experts, denoting their likelihood of being the best expert. Priors are commonplace in Bayesian statistics, expressing one's belief over a given uncertain quantity before any evidence is taken into account.
+
+More formally, we have $N$ experts $\{e_1,...,e_N\}$ and there exists at least one expert is perfect (i.e., realizable setting). Every round each expert predicts $0$ or $1$.  We are given a prior which is a probability distribution $p$ over experts: $0 < p(e_i)< 1, \forall i$ and $\sum_{i}p(e_i) = 1$. Intuitively, $p(e_i)$ denotes the likelihood, in our knowledge, that expert $e_i$ is the best expert.
+
+In this case, a natural prediction strategy is to run the halving algorithm, but where the prediction of each expert $e_i$ in the version space (i.e., all experts that have not yet made any mistakes) is weighted according to $p(e_i)$.
+
+\begin{enumerate}
+    \item \textbf{(3 points) Question:} Convert the above high level strategy into pseudocode for an online expert algorithm. 
+
+    \item \textbf{(4 points) Question:} Prove that the total number of mistakes is $O(\log(\frac{1}{p(e^*)}))$, where $e^*$ is the perfect expert who never makes a mistake. 
+    
+    \item \textbf{(3 points) Question:} Compare this mistake bound to that of the Halving algorithm we saw in class. When will this Bayesian Halving algorithm perform better than the one we learned in class? When will it perform worse?
+    
+\end{enumerate}
+
+\subsection{Multi-Class Classficiation (15 points)}
+In class, we focused on the binary classification problem (e.g., experts only bet on one of two horses) and studied the Halving algorithm. Now let us consider the general $k$-class ($k\geq 3$) prediction problem (e.g., experts need to bet on one of $k$ different horses).   More formally, let us denote $k$ classes as $\{1, 2, ..., k\}$. As usual, we have $N$ experts and every round, each expert will choose a label from the set $\{1,2.,...,k\}$. Here, we assume the realizable setting, where at least one expert never makes a mistake.
+
+Let us consider two scenarios: (1) A fully observable scenario where the learner is told the true label after it makes a prediction, and (2) a partially observable scenario where the learner is only told if its prediction is correct or not but, it is \textbf{not} given the true label. The second scenario is partially observable because we cannot compute the loss for all of the experts, whereas in the first scenario we can compute the loss for each expert.
+
+\begin{enumerate}
+    \item \textbf{(5 points) Question:} Show that for the \textit{fully observable scenario}, the Halving algorithm has the same mistake bound as the binary label case. Here, the prediction at every round $t$ is the label $\hat{i}\in \{1,2,...,k\}$ that has the most expert votes (we can break ties arbitrarily). On being given the true label, we eliminate every incorrect expert and move to round $t+1$, just as usual.
+    
+    \item For the \textit{partially observable scenario}, consider the following high-level strategy. The prediction at each step is the same as above. But now, we do not get to see the true label. We only are told if our prediction is correct or not. If label $\hat{i}$ is correct, we do nothing. On the other hand, if label $\hat{i}$ is wrong (i.e., we just made a mistake), we eliminate all experts who chose label $\hat{i}$ at round $t$. We then move to round $t+1$.
+
+    \textbf{(10 points) Question:}
+    Convert the above high-level strategy into pseudocode for an algorithm and derive its mistake bound. 
+    
+    \textbf{Note:} The mistake bound has to be logarithmic with respect to the number of experts $N$. It is not acceptable for the bound to be polynomial with respect to $N$.
+
+    \emph{Hint:} The pigeonhole principle may be useful.
+    
+\end{enumerate}
+
+
+\subsection{Understanding Adversarial Environments (10 points)}
+Consider a non-realizable PWEA setting where:
+\begin{itemize}
+    \item The world/adversary presents a observation $x_t$ to the online learner.
+    \item The online learner then asks each expert to make a \{0,1\} prediction. 
+    \item The adversary sees all the individual expert predictions and their current weights, then decides the true \{0,1\} label $y_t$.
+    \item The online learner now chooses a PWEA strategy (e.g., weighted majority or randomized weighted majority) to make a final prediction before $y_t$ is revealed to the online learner.
+    \textbf{Note:} The adversary has access to the exact strategy being used to make this prediction. But it does not have access to the outputs of the randomizer which the learner might use.
+\end{itemize}
+
+\noindent Now, answer the following questions:
+
+\begin{enumerate}
+    \item \textbf{(5 points) Question:} Show that a strategy exists for the adversary such the loss (the number of mistakes) is always maximized for the deterministic Weighted Majority Algorithm. You should be able to explain the strategy in a few sentences. Hint: Consider a simple case with just 2 experts.
+    
+    \item \textbf{(5 points) Question:} Assume that at least one expert is correct at least once. Prove that the expected loss of the Randomized Weighted Majority Algorithm against the worst adversary (as designed above) is strictly less than the loss of WMA. Why does randomization help improve the worst case performance of the learner?
+    
+\end{enumerate}
+
+\section{Coding (55 Points)}
+\subsection{General Instructions}
+\begin{itemize}
+    \item For this questions, please use either Matlab and Python. 
+    \item If you use Python, use standard scientific packages; nothing outside of this list: \href{https://docs.continuum.io/anaconda/pkg-docs}{https://docs.continuum.io/anaconda/pkg-docs}
+    \item \textbf{The submitted code should be self-contained, except for the packages listed above.}
+    \item Make sure you comment your code thoroughly to help the TAs understand your logic. Use good functional coding practices.
+\end{itemize}
+
+\noindent Here are the typical steps for an online learner in the PWEA setting:
+\begin{enumerate}
+    \item The world/adversary presents an observation to the online learner.
+    \item The online learner asks each expert to make a prediction.
+    \item The world then determines the label. In the adversarial case, the adversary gets to see the predictions and weights of each expert, but \textbf{not} the final prediction made by the online learner.
+    \item The online learner makes a final prediction and the true label is revealed.
+    \item The online learner incurs a loss and updates the weights of the experts.
+    \item Repeat from step 1.
+\end{enumerate}
+
+\subsection{Programming the World (10 points)}
+Consider using PWEA algorithms to predict the results for the Tartans' sports games. Here, the prediction is binary: win or lose. You have three experts in $\mathcal{H}$: expert one is a die-hard, and rather foolishly optimistic, fan for Tartans' sports team and always predicts a win; expert two is a resigned pessimist who always predicts a loss; and expert three predicts that the Tartans will lose every odd-numbered game and win every even-numbered game.
+
+\noindent\textbf{Code:} Design three world classes for the Tartans' sports team that generate true labels $y_t$ as follows: (1) stochastic (2) deterministic and (3) adversarial, respectively. Be creative! \textbf{Note:} Only the adversarial world can see the learner's strategy or the experts' predictions and weights.
+
+
+\subsection{Weighted Majority Algorithm (15 points)} \label{q-wma}
+\textbf{Code:} Implement the Weighted Majority Algorithm. Assume the loss function is the \{0,1\} loss, i.e., 0 for a correct prediction and 1 for a mistake. Plot:
+\begin{enumerate}
+    \item Average cumulative regret
+    \begin{equation}
+        \frac{R_t(\mathcal{H})}{t} = \frac{1}{t} \left(\sum_{i = 1}^t \ell(\hat y^{(i)}, y^{(i)}) - \min_{h \in \mathcal{H}}\sum_{i=1}^t \ell(h(\mathbf{x}^{(i)}), y^{(i)})\right) \nonumber
+    \end{equation}
+    on the y-axis against time steps $t = 1, \dotsc, T$ on the x-axis.
+    \item The learner's cummulative loss and all the experts' cumulative losses
+    \begin{gather}
+        \sum_{i=1}^t \ell(\hat y^{(i)}, y^{(i)}) \nonumber \\
+       \sum_{i=1}^t \ell(h(\mathbf{x}^{(i)}), y^{(i)}) \quad \forall h \in \mathcal{H} \nonumber 
+    \end{gather}
+    on the y-axis against time steps $t = 1, \dotsc, T$ on the x-axis.
+\end{enumerate}
+There should be 2 plots for each world, meaning 6 plots in total. Discuss your observations in each plot. Take the total number of rounds $T$ as 100. Explore a few different values of $\eta \in [0,1/2]$ and choose one you like. You are encouraged to explore different values of $T$ and observe how it is coupled with $\eta$. 
+
+\subsection{Randomized Weighted Majority Algorithm (15 points)}
+\textbf{Code:} Implement the Randomized Weighted Majority Algorithm. Again, assume the loss function is the \{0,1\} loss. Make the same 6 plots as in question \ref{q-wma}. Discuss your observations in each plot. Take the total number of rounds $T$ as 100. Explore a few different values of $\eta \in [0,1/2]$ and choose one you like.
+
+\subsection{More Experts and Observations/Features (15 points)}
+At this point, you have probably have found that the PWEA algorithms can sometimes lead to large loss/errors, even though they might be no-regret (sometimes even negative regret). This is because we only have three dumb experts. The previous experts make no use of observations. 
+
+Now, say we have that the Tartans win more frequently when the weather is sunny. This information can be considered as a part of the world. An expert who observes the weather could predict a win if it's sunny and a loss if it's not. An even smarter expert could use past observations to learn this correlation (i.e. using an SVM or some other classifier).
+
+\noindent\textbf{Code:} Your job now is to: (1) Add observations/contextual features for the PWEA algorithm. The features could be information like weather, home vs. away games, win streaks, etc. (2) Add more experts to the expert pool that utilize the features.
+
+You should also modify the label generation procedure for the world classes to incorporate the new features; the features aren't useful if they don't tell us anything about the labels!
+
+\noindent\textbf{Question:} Pick up to three additional experts which use the features. Plot the same six plots from the previous questions and show how regret and loss change. Make sure you describe your features and experts as well.
+
+\section{What to Submit}\label{sec:wts}
+
+Your submission should consist of a single zip file named {\tt<AndrewId>.zip}. This zip file should contain:
+
+\begin{itemize}
+    \item a folder {\tt code} containing all the code and data (if any) files you were asked to write and generate.
+
+    \item a \texttt{pdf} named {\tt writeup.pdf} with the answers to the theory questions and the results, explanations and images asked for in the coding questions.
+
+\end{itemize}
+
+\end{document}

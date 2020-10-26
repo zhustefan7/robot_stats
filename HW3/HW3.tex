@@ -1,0 +1,454 @@
+\documentclass{article}
+\usepackage{etoolbox}
+\usepackage{amsmath} % assumes amsmath package installed
+\usepackage{amsfonts}
+\usepackage[utf8]{inputenc}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{graphicx}
+\usepackage{bbm}
+\usepackage[ruled,vlined,linesnumbered]{algorithm2e} 
+\usepackage[colorlinks=true]{hyperref}
+
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+ 
+\lstdefinestyle{mystyle}{
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    stringstyle=\color{codepurple},
+    basicstyle=\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+ 
+\lstset{style=mystyle}
+
+
+\newcommand{\E}[1]{\mathbb{E}_{#1}\;}
+\newcommand{\tl}{\tilde{l}}
+\newcommand{\Ind}[1]{\mathbbm{1}_{#1}}
+
+
+\title
+{ 
+{\small Statistical Techniques in Robotics 16-831 - The Robotics Institute} 
+\\ 
+\vspace{5mm}
+Project 3: MultiArmed Bandits
+{\large \\Deadline: Nov 5, 2020 11:59 PM EST (submit via Canvas)}
+}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+A multi-armed bandit problem (or, simply, a bandit problem) \cite{bubeck_bandit2012} is a sequential allocation problem defined by a set of actions. At each time step, a unit resource is allocated to an action and some observable payoff is obtained. The goal is to maximize the total payoff obtained in a sequence of allocations. The name bandit refers to the colloquial term for a slot machine (`one-armed bandit' in American slang). In a casino, a sequential allocation problem is obtained when the player is facing many slot machines at once (a `multi-armed bandit') and must repeatedly choose where to insert the next coin.
+
+In project 1, we looked at the Prediction with Expert Advice (PWEA) problem. We will begin by understanding why naively applying Generalized Weighted Majority does not work in the bandit setting.
+
+We will then work through two classes of bandit algorithms - one that makes assumptions about nature (stochastic bandits) and one that does not (adversarial bandits). The goal of this project is to understand the behaviour of these algorithms and also understand which one to use in a real world application.
+
+Detailed instructions on what to submit are given in Section \ref{sec:wts}. 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Framework (5 points)}
+\subsection{Notation}
+
+We will first define a framework to study bandit algorithms. The two main components of this framework is a \textbf{Game} and a \textbf{Policy}.
+
+A \textbf{Game} is defined as follows. There is a set of actions $n = 1, 2, \dots N$. The game proceeds in rounds indexed by time $t = 1, 2, \dots, T$. At time step $t$, each action $n$ is associated with a reward $g^t_n \in [0, 1]$ determined a priori by the game. This implies that the game creates a table of rewards.
+
+\begin{equation}
+G = 
+\begin{bmatrix}
+g^1_1 &  g^2_1  & \ldots & g^T_1\\
+g^1_2 & g^2_2   & \ldots & g^T_2\\
+\vdots & \vdots & \ddots & \vdots\\
+g^1_n  & \ldots & \ldots & g^T_n
+\end{bmatrix}
+\end{equation}
+
+The game is played by a \textbf{Policy}. The policy is a bandit algorithm. At every time step $t$, the policy selects an action $a^t$. The game provides a reward from its table of rewards $g^t_{a^t}$.
+The regret of a policy is defined as 
+
+\begin{equation}
+R^{T} =  \max_{i=1,\dots,N} \sum\limits_{t=1}^T g^t_i - \sum\limits_{t=1}^T \E{a^t} g^t_{a^t}
+\end{equation}
+
+\subsubsection{Connection to PWEA terminology}
+\begin{itemize}
+\item Trials \textemdash In PWEA we used the term trial. This is each round of the Game.
+\item Prediction \textemdash In PWEA we used the term prediction. This is equivalent to Action in this setting
+\item Online Algorithm \textemdash In PWEA we used various online algorithms like Greedy, Halving etc. This is equivalent to Policy in this setting.
+\end{itemize}
+
+\subsection{Programming}
+
+You can use either \texttt{Matlab} or \texttt{Python} (with numpy, scipy, matplotlib, etc.) for this assignment. Skeleton code has been provided for both languages to help you get started. We strongly encourage you to follow this skeleton code. \texttt{Matlab} will be used as the running example in this handout, but the equivalent functions can also be found in the \texttt{Python} skeleton as well.
+
+\subsection{Files}
+
+For matlab, you have been provided with the code that contains the following files
+
+\begin{itemize}
+\item \texttt{Game.m} \textemdash abstract game class 
+\item \texttt{gameConstant.m} \textemdash game where rewards are constant
+\item \texttt{gameGaussian.m} \textemdash game where rewards are drawn from Gaussian
+\item \texttt{gameAdversarial.m} \textemdash game where rewards are an adversarial sequence
+\item \texttt{gameLookupTable.m} \textemdash game where rewards are read from an external table
+\item \texttt{Policy.m} \textemdash abstract policy class 
+\item \texttt{policyConstant.m} \textemdash policy chooses a constant action
+\item \texttt{policyRandom.m} \textemdash policy chooses actions randomly
+\item \texttt{policyGWM.m} \textemdash policy is GWM
+\item \texttt{policyEXP3.m} \textemdash policy is EXP3
+\item \texttt{policyUCB.m} \textemdash policy is UCB
+\item \texttt{simpleDemo.m} \textemdash script to apply policy on a game
+\item \texttt{data/} \textemdash folder containing datasets
+\end{itemize}
+
+
+For Python, these are the files
+
+\begin{itemize}
+\item \texttt{policy.py} \textemdash Includes base class for policy. Implement GWM, EXP3, UCB here. 
+\item \texttt{game.py} \textemdash Includes base class. Implement games with gaussian, adversarial rewards and lookup table for real datasets.
+\item \texttt{simpleDemo.py} \textemdash script to apply policy on a game
+\item \texttt{data/} \textemdash folder containing datasets
+\end{itemize}
+
+\subsection{Game}
+The abstract class Game is defined in \texttt{Game.m} and \texttt{game.py}. This class defines common functionality for a game.  
+The member variables of the class are as follows.
+\begin{lstlisting}[language=Octave]
+nbActions   
+totalRounds 
+tabR        
+N           
+
+\end{lstlisting}
+A concrete class that inherits from this class will define values for each of these variables. 
+The member functions are as follows. The first three functions have already been filled in for you.
+\begin{lstlisting}[language=Octave]
+function [reward, action, regret] = play(self, policy)
+   
+function resetGame(self)
+   
+function r = reward(self, a)
+   
+function r = cumulativeRewardBestActionHindsight(self)
+
+\end{lstlisting}
+
+\noindent\textbf{(3 points) Code:} Fill in the function \texttt{cumulativeRewardBestActionHindsight}.\\
+
+
+\noindent In the coming sections, we will define a variety of games. In each case, we will create a new class that inherits from this class. As an example for a concrete class, examine the file \texttt{gameConstant.m} or the \textit{class gameConstant(Game)} in \texttt{game.py}. This is a game with only 2 actions which have constant rewards for all time steps. We will use this class to sanity check our implementations.
+
+\subsection{Policy}
+The abstract class for the policy is defined in \texttt{Policy.m} and \texttt{policy.py}. This class defines common functionality for a policy. This class has no member variables. The member functions are all abstract and are as follows  
+
+\begin{lstlisting}[language=Octave]
+function init(self, nbActions); 
+
+function a = decision(self); 
+
+function getReward(self, reward); 
+
+\end{lstlisting}
+
+In the coming sections, you will define a variety of policies. In each case, we will create a new class that inherits from this class.
+As an example for a concrete class, examine the file \texttt{policyConstant.m} or \textit{class policyConstant(Policy)} in \texttt{policy.py} . In this case the policy decides an action from the beginning and sticks to it. Also examine \texttt{policyRandom} which randomly selects an action at every time step.
+
+\subsection{Application}
+
+\noindent\textbf{(2 points) Code:} We will now apply a policy on a game. Examine the file \texttt{simpleDemo.m} or \texttt{simpleDemo.py}.
+Plot the regret for both policies. Also plot the actions taken by both policies. Briefly discuss what you notice.\\
+
+\noindent We have now gone through the whole framework. In subsequent sections we will make new policies and games and make similar plots to have a better understanding.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{EXP3 (Exponential Weights for Exploration and Exploitation) (45 points)}
+
+We learned in class that the EXP3 algorithm was a modification to the Generalized Weighted Majority (GWM) algorithm to work in the Bandit setting. The GWM algorithm is an extension of the Randomized Weighted Majority (RWM) algorithm in that we consider a continuous loss as opposed to the zero-one loss. 
+
+An action $n$ at time $t$ receives a loss $l^t_n \in [0, 1]$. The weights of the experts are updated as $w^{t+1}_n = w^t_n \exp{(-\eta l^t_n)}$ every iteration. The rest of the algorithm remains the same.  It is straightforward to go from reward $g^t_n$ to loss $l^t_n$ by applying the following transformation:
+\begin{equation}
+l^t_n = 1 - g^t_n
+\end{equation}
+
+We will also use this conversion from rewards given by the game to loss while we develop the EXP3 policy in the loss setting.
+
+\subsection{Generalized Weighted Majority for bandits}
+
+Here, we have the pseudocode for the GWM algorithm (Alg.~\ref{alg:gwm}). We will apply it in the bandit setting.
+
+\begin{algorithm}
+    \label{alg:gwm}
+    \caption{Generalized Weighted Majority (GWM)} 
+    
+    $w^1_n \gets 1$\;
+    \For{$ t = 1,2,\ldots,T$}
+    {
+        $p_n^t \gets \frac{w_n^t}{\sum_{i=1}^N w_n^t}$ \;
+    	$a^t \gets \mathtt{Multinomial}(p^t_n)$\;
+    	$l^t \gets \mathtt{GetLoss}()$\;
+    	$w^{t+1}_n = w^t_n e^{-\eta^t l^t_n}$\;
+    }
+\end{algorithm}
+
+The regret $R^T$ for GWM is:
+
+\begin{equation}
+\begin{aligned}
+R^{T} 	 	& = \sum\limits_{t=1}^T \E{a^t \sim p^t_n} l^t_{a^t} - \sum\limits_{t=1}^T l^t_{n^*} \\
+		 	& \leq \sum\limits_{t=1}^T \epsilon l^t_{n^*} + \frac{\log N}{\epsilon} \\
+\end{aligned}
+\end{equation}
+where $\epsilon \in (0, 0.5)$.
+
+GWM is a no-regret algorithm in the online setting where the game reveals the entire vector $l^t$, i.e, all the losses incurred by all the actions at timestep $t$. However in the bandit setting only $l^t_{a^t}$ is revealed. This is equivalent to receiving a loss vector $\hat{l}^t_n$ where 
+
+\begin{equation}
+\hat{l}^t_n = l^t_n \Ind{a^t=n}
+\end{equation}
+
+
+We will implement GWM with such a loss vector. The files \texttt{policyGWM.m} and \texttt{policy.py} contains the concrete class derived from Policy that has to be filled up. The comments contain a general guide as to what each function should implement. Since we are doing an \emph{anytime} version of the algorithm where the time horizon is not known to GWM, use $\eta^t = \sqrt{\frac{\log N}{t}}$
+
+\subsubsection{Implement GWM}
+\textbf{(10 points) Code:} Complete \texttt{policyGWM.m} or \textit{class policyGWM(Policy)} in \texttt{policy.py}. Test it on the constant game. Plot the regret and the actions chosen. Explain the behaviour of GWM.\\
+
+\noindent You should see that that GWM is not at all working! But we know that in the full information setting it is no-regret. Revisit the regret bound for GWM and confirm that it is no longer valid under the bandit setting.
+
+\subsubsection{Regret bound} 
+\textbf{(Bonus: 15 points) Question:} Derive the regret bound for GWM in the bandit setting.
+
+You will notice that it is a loose regret bound. This is clearly due to GWM using the loss vector $\hat{l}^t_n$. Now we define a \emph{scaled loss}. If the probability distribution over actions maintained by GWM at time $t$ is $p^t_n$ then the scaled loss is defined as:
+
+\begin{equation}
+\tl^t_n = \frac{l^t_n}{p^t_n} \Ind{a^t=n}
+\end{equation}
+
+\subsubsection{Unbiased estimator of regret} 
+
+\textbf{(7 points) Question:} Show that $\sum\limits_{t=1}^T \tl^t_n$ is an unbiased estimator (in expectation over the actions selected) of $\sum\limits_{t=1}^T l^t_n$ for any action $n$. An estimator $\hat{Y}$ of some quantity $Y$ is said to be unbiased if $E[\hat{Y}] = Y$.\\
+
+\noindent\textit{Hints:} Try to develop some intuition about what is asked to be proved. We want to estimate the sum of the losses for all time steps of any one action. Lets pick action $1$ to be concrete. Action $1$ only has a probability of being selected $p^t_1$ at time step $t$. When it is selected we observe its true loss, and when its not selected we pretend its loss is $0$. 
+
+\subsection{Implementation}
+
+The EXP3 algorithm (Alg.~\ref{alg:exp3}) is GWM applied to the scaled loss. The hope is that since we showed that the scaled loss is an unbiased estimator of the true loss, EXP3 should work. 
+
+\begin{algorithm}
+    \label{alg:exp3}
+    \caption{EXP3} 
+   
+    $w^1_n \gets 1$\;
+    \For{$ t = 1,2,\ldots,T$}
+    {
+    $p_n^t \gets \frac{w_n^t}{\sum_{i=1}^N w_n^t}$ \;
+    	$a^t \gets \mathtt{Multinomial}(p^t_n)$\;
+    	$l^t_{a^t} \gets \mathtt{GetLoss}()$\;
+    	$\tilde{l}^t_{a^t} \gets \frac{l^t_{a^t}}{p^t_{a^t}} $\;
+    	$w^{t+1}_{a^t} = w^t_{a^t} e^{-\eta^t \tilde{l}^t_{a^t}}$\;
+    }
+\end{algorithm}
+
+The files \texttt{policyEXP3.m} and \textit{class policyEXP3(Policy)} in \texttt{policy.py} contains the concrete class derived from Policy that has to be filled up. The comments contain a general guide as to what each function should implement. Choose $\eta^t = \sqrt{\frac{\log N}{tN}}$. 
+
+\subsubsection{Implement EXP3} \label{q:exp3constant}
+\textbf{(10 points) Code:} Complete your implementation of \texttt{policyEXP3.m} or the \textit{class policyEXP3(Policy)} in \texttt{policy.py}. Test EXP3 on the constant game. Plot the regret. Plot the actions chosen. Interpret how EXP3 behaves from the plot.
+
+\subsection{Gaussian Game}
+
+We will now test EXP3 on a more realistic game. In this game, the rewards for each action is drawn from a Gaussian distribution. 
+
+\begin{equation}
+g^t_n \sim \mathcal{N}(\mu_n, \sigma^2_n )
+\end{equation}
+
+The file \texttt{gameGaussian.m} and \texttt{game.py} contains the concrete class derived from Game that has to be filled up for the Gaussian game. 
+Choose $\mu_n$ to be uniform random $[0,1]$. Choose the standard deviation $\sigma_n$ to be uniform random $[0,1]$. Remember to ensure that the sampled $g^t_n \in [0,1]$.
+
+\subsubsection{Implement the Gaussian Game}
+\textbf{ (5 points) Code:} Complete \texttt{gameGaussian.m} or \textit{class gameGaussian(Game)} in \texttt{game.py}.
+
+\subsubsection{Test EXP3}
+\textbf{ (5 points) Code:} Test EXP3 on the Gaussian game. Plot the regret. Create a Gaussian game with $10$ actions that go on for $10^4$ timesteps.
+
+\subsection{Variance Issues}
+Even though we showed $\sum\limits_{t=1}^T \tl^t_n$ is an unbiased estimator of the true losses, we did not examine the variance of the estimate. Variance is given by:$$\mathrm{Var}(X) = \mathbb{E}[X^2] - (\mathbb{E}[X])^2$$
+\noindent\textbf{(8 points) Question:} Derive the variance of the estimator $\sum\limits_{t=1}^T \tl^t_n$. Is the variance bounded?
+
+\noindent Even though we will proceed with the vanilla version of EXP3, there are variants of EXP3 that fix this issue. \cite{bubeck_bandit2012}.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Upper Confidence Bound (UCB) Algorithm (35 points)}
+
+The EXP3 algorithm made no assumptions about how $l^t_n$ was distributed. This property was also shared by the online algorithms that we looked at in the full information setting such as RWMA, GWM, etc.
+
+However there is a large class of algorithms that do make such an assumption, i.e., treat the losses for an action to be i.i.d. One such approach is Upper Confidence Bound (UCB).
+
+For the implementation of UCB we shall revert back to using rewards $g^t_n$ to be consistent with the literature. 
+
+\subsection{Optimism Under Uncertainty}
+
+UCB employs the principle of optimism in the face of uncertainty. This principle is a very useful heuristic to deal with the exploration exploitation tradeoff. At each time step, despite the uncertainty in what actions are best we will construct an optimistic estimate as to how good the expected reward of each action is, and pick the action with the highest estimate. If the action incurs low reward, then the optimistic estimate will quickly decrease and we will be compelled to switch to a different action. But if the action had a good reward, it resulted in exploitation of that action and we incur little regret. In this way we balance exploration and exploitation. 
+
+\subsection{Upper Confidence Bound}
+
+We will now use the principle of optimism under uncertainty to select the action at each time step. We assume that the loss of each action is i.i.d. At any time step, we have some confidence interval for the mean loss of an action based on the finite number of times we have selected it. We compare the upper confidence bound for all the actions and pick the best one. 
+
+We will use Hoeffding's inequality to come up with this upper confidence bound. Let $X_1, X_2, \ldots, X_m$ be i.i.d random variables in $[0,1]$. Let $\mu$ be the true mean. Let $\hat{\mu} = \frac{1}{m} \sum\limits_{i=1}^m X_i$ be the sample mean. Then Hoeffding's inequality states:
+
+\begin{equation}
+P(\mu - \hat{\mu} \geq \varepsilon) \leq e^{-2m\varepsilon^2}
+\end{equation}
+
+\subsubsection{Upper bound}
+\textbf{ (8 points) Question:} Show that the upper bound of the mean is the following with probability at least $1-\delta$:
+
+\begin{equation}
+\mu \leq \frac{1}{m} \sum\limits_{i=1}^m X_i + \sqrt{ \frac{\log(\delta^{-1})}{2m} }
+\end{equation}
+
+Now we return to the bandit setting. Let the number of times an action $n$ has been selected uptil a time step $t$ be maintained by the counter $C^t_n$. 
+Let $\mu^t_n$ be the true mean of rewards for action $n$.
+Let $\hat{\mu}^t_n$ be the sample mean of rewards for action $n$. 
+
+
+Assume we want to drive the probability that the confidence bound is correct to $1$ as $t \rightarrow \infty$. We can do so by choosing $\delta = \frac{1}{t}$. 
+
+\subsubsection{Upper bound for the algorithm}
+\textbf{(7 points) Question:} Show that the upper bound of the mean reward for an action $n$ is the following:
+\begin{equation}
+\mu^t_n \leq \hat{\mu}^t_n + \sqrt{ \frac{\log t}{2C^t_n} }
+\end{equation}
+
+\subsection{Implementation}
+
+The UCB algorithm is as follows. Note that Line 3 to 6 is the initialization procedure: we pull each arm once to make sure that $C_i\neq 0$ when we enter into the main procedure in Line 8 to 11. 
+
+\begin{algorithm}[H]
+    \caption{UCB}
+    
+    $S_i \gets 0 \quad \forall i \in \{1, \dotsc, N\}$\;
+    $C_i \gets 0 \quad \forall i \in \{1, \dotsc, N\}$\;
+    \For{$ i = 1, 2, \ldots, N$}
+    {
+        Pull arm $i$ and receive reward $g_i^0$ for arm $i$\;
+        $S_i = g_i^0$\;
+        $C_i = 1$\;
+    }
+    
+    \For{$ t = 1,2,\ldots,T$}
+    {
+    	$a^t \gets \underset{i=1,\dots,N}{\arg \max} \; \frac{S_i}{C_i}  + \sqrt{ \alpha \frac{\log t}{2C_i}} $\;
+    	$g^t_{a^t} \gets \mathtt{GetReward}()$\;
+    	$S_{a^t} \gets S_{a^t} + g^t_{a^t} $\;
+    	$C_{a^t} \gets C_{a^t} + 1$\;
+    }
+\end{algorithm}
+\noindent where $\alpha$ is exploration-exploitation trade-off parameter. For this assignment, a good starting place is $\alpha = 1$.
+
+The files \texttt{policyUCB.m} and \texttt{policy.py} contains the concrete class derived from Policy that has to be filled up. The comments contain a general guide as to what each function should implement.
+
+\noindent\textbf{(10 points) Code:} Complete \texttt{policyUCB.m} or \textit{class policyUCB(Policy)} in \texttt{policy.py}. Test UCB on the constant game. Plot the regret. Plot the actions chosen. Plot the upper confidence of both actions. Interpret how UCB behaves from these plots.
+
+\subsection{Gaussian Game}
+
+We will now test UCB on the Gaussian game that we created in the previous section to test EXP3. 
+
+\noindent\textbf{(5 points) Code:} Test UCB on the Gaussian Game. Plot the regret of UCB vs that of EXP3. Explain the performance difference.
+
+\subsection{Adversarial Game}
+
+UCB is a deterministic algorithm. We studied in class that such algorithms are vulnerable to deterministic sequences. We will now design such an adversarial game.
+To keep things simple choose only $2$ actions. The game must run for atleast $1000$ rounds.
+
+\noindent\textbf{(5 points) Code:} Implement Adversarial Game by completing \texttt{gameAdversarial.m} or \textit{class gameAdverserial(Game)} in \texttt{game.py}. Plot the actions chosen by UCB and EXP3. Compare the regret. Interpret the plots.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Real Datasets (15 points)}
+
+We will now test these bandit algorithms on two datasets. This will help us understand how these algorithms behave in practice.  
+
+\subsection{Lookup Table Game}
+
+Before we proceed, we will have to define a game class that helps us easily test on databases. We will call this a lookup table game where the class is given a table of rewards as input. 
+
+The file \texttt{gameLookupTable.m} and \texttt{game.py} contains the concrete class derived from Game that has to be filled up. 
+
+\noindent \textbf{(5 points) Code:} Implement the lookup table game in \texttt{gameLookupTable.m} or the \textit{class gameLookupTable(Game)} in \texttt{game.py}.
+
+\subsection{University Website Latency Dataset}
+
+This dataset corresponds to a real-world data retrieval problem where redundant sources are available. This problem is also commonly known as the Content Distribution Network problem (CDN). An agent must retrieve data through a network with several redundant sources available. For each retrieval, the agent selects one source and waits until the data is retrieved. The objective of the agent is to minimize the sum of the delays for the successive retrievals.
+
+We will use a university website latency dataset from \cite{vermorel_emp2005}. The dataset  corresponds to the retrieval latencies of more than 700 university homepages. The pages have been probed every 10 mins for more than one week in May 2004 from an internet 
+connection located in New York, NY, USA.
+
+To fit into our bandit setting, these latencies have to be first normalized in the interval $[0, 1]$. The normalized table is provided in the file \texttt{univLatencies.mat} in the folder \texttt{data/}. The rows of the matrix correspond to different universities. The columns correspond to different times. Note that the table is a collection of \emph{losses}. When this is passed to the constructor of \texttt{gameLookupTable}, the loss flag must be set to true.
+
+\noindent\textbf{(5 points) Code:} Test EXP3 and UCB on this dataset. Plot the corresponding regrets. Explain what you see in the plots!
+
+\subsection{Planner Dataset}
+
+This dataset corresponds to a simulated 2D robot navigating at high speeds through an environment. The robot must use a planning algorithm from its database of planning algorithms to plan a path within a strict time budget. At each planning instance, the robot selects one planning algorithm and gets the cost of the path that is planned (which corresponds to loss). 
+
+The planning database (corresponding to actions) is created by selecting planners from OMPL with different parameters. The loss of a selected planner on an environment is the normalized cost of the planned path. The environments come from a non-stationary distribution. The robot first moves in a environment with sparse set of obstacles (favouring planning algorithms that aggressively collision check long edges) to a cluttered environment (favouring planning algorithms that do ordered search over smaller edges). 
+
+The normalized table is provided in the file \texttt{plannerPerformance.mat} in the folder \texttt{data/}. The rows of the matrix correspond to different planners. The columns correspond to different environments. Note that the table is a collection of \emph{losses}. When this is passed to the constructor of \texttt{gameLookupTable}, the loss flag must be set to true.
+
+\noindent\textbf{(5 points) Code:} Test EXP3 and UCB on this dataset. Plot the corresponding regrets. Explain what you see in the plots!
+
+\section{What to Submit}\label{sec:wts}
+Submit this homework on Canvas.
+Your submission should consist of a single zip file named {\tt<AndrewId>.zip}. This zip file should contain:
+
+\begin{itemize}
+    \item a folder {\tt code} containing all the code and data (if any) files you were asked to write and generate. Include instructions for running the experiments/plots for different subsections. You can pass in arguments (e.g. with {\tt argparse}) or have seperate scripts for different questions (just remember to document the steps to reproducing the plots in the writeup). %\textcolor{blue}{(KK: specify all the file names.)}
+
+    \item a \texttt{pdf} named {\tt writeup.pdf} with the answers to the theory questions and the results, explanations and images asked for in the coding questions. Read the write up carefully before your submit. You will lose points if you do not include everything. Feel free to add extra images and figures if you think they are useful for better explaining your answers.
+
+\end{itemize}
+
+\begin{thebibliography}{10}
+
+\bibitem{bubeck_bandit2012}
+S. Bubeck, and N. Cesa-Bianchi, ``Regret analysis of stochastic and nonstochastic multi-armed bandit problems.'' arXiv preprint arXiv:1204.5721 (2012).
+    
+\bibitem{vermorel_emp2005}
+J. Vermorel, and M. Mohri,``Multi-armed bandit algorithms and empirical evaluation,'' Machine Learning: ECML 2005. Springer Berlin Heidelberg, 2005. 437-448.
+\end{thebibliography}
+
+
+\end{document}
